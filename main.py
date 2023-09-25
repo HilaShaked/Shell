@@ -60,7 +60,7 @@ def ls(args):
     -l	known as a long format that displays detailed information about files and directories.          √
     -a	Represent all files Include hidden files and directories in the listing.                        √
     -m	Displaying the files and directories by the most recently modified ones first.                  √
-    -c	Displaying the files and directories by the most recently created ones first.                  √
+    -c	Displaying the files and directories by the most recently created ones first.                   √
     -r	known as reverse order which is used to reverse the default order of listing.                   √
     -s	Sort files and directories by their sizes, listing the largest ones first.                      √
     -d	List only directories                                                                           √
