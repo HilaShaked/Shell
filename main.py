@@ -106,7 +106,8 @@ def ls_long(dir_data, dir_path):
         stat = os.stat(f'{dir_path}/{i}')
         # print(f"Debug: os.stat(f'{dir_path}/{i}') = {stat}")
         curr = [get_mode(stat.st_mode), stat.st_size, get_time(stat.st_mtime), get_time(stat.st_ctime, True)]
-        ret += [f'{curr[0]} {str(curr[1]).zfill(8)}\t{curr[2]}\t{curr[3]}\t\t{i}']
+        ret += [f'{curr[0]} {str(curr[1]).zfill(8)}\t{curr[2]}\t{curr[3]}\t\t{i}']  # doesn't look well in files cus
+        # tabs are different
 
     return ret
 
@@ -119,7 +120,7 @@ def get_mode(st_mode):
         if val == '0':
             ret += '-'
             continue
-        ret += modes[i%3]
+        ret += modes[i % 3]
     return ret
 
 
@@ -134,16 +135,29 @@ def title(args):
     return args[0].title()
 
 
+def cool(_):
+    import time
+    for x in range(0, 4):
+        b = "Loading" + "." * x
+        print(b, end="\r")
+        time.sleep(1)
+
+
 # We need add functions to these:
-inner_commands = {'cls': clear_screen, 'cd': change_directory, 'ls': ls, 'title': title}
-external_commands = []
+inner_commands = {'cls': clear_screen, 'cd': change_directory, 'ls': ls, 'title': title, 'cool': cool}
+external_commands = {'print': 'print.py'}
 
 
-def get_func(func_name):
-    if func_name in inner_commands:
-        return inner_commands[func_name]
+def run_func(func, args):
+    if func in inner_commands:
+        return inner_commands[func](args)
+    if func in external_commands:
+        temp = subprocess.run(['python', external_commands[func]] + args)
+        return temp.stdout
 
-    return None
+
+def is_shell_command(func_name):
+    return not (func_name in inner_commands or func_name in external_commands)
 
 
 def output(to_output):  # very temp function. need to change
@@ -152,8 +166,9 @@ def output(to_output):  # very temp function. need to change
         return
 
     # print(f'Debug: output_location = {output_location}, output_mode = {output_mode}')
-    if output_location == sys.stdout:
+    if output_location == sys.stdout or not isinstance(output_location, str):
         print(to_output)
+        sys.stdout.flush()
         return
 
     with open(output_location, output_mode) as f:
@@ -165,7 +180,7 @@ def output(to_output):  # very temp function. need to change
 def get_output_location(args: list):  # also temp
     global output_location, output_mode
 
-    if (not '>' in args) and '>>' not in args:
+    if '>' not in args and '>>' not in args:
         output_location, output_mode = sys.stdout, 'w'
         return
 
@@ -173,14 +188,20 @@ def get_output_location(args: list):  # also temp
     if '>>' in args:
         to_find, output_mode = '>>', 'a'
 
-    try:
-        index = args.index(to_find)
-        output_location, output_mode = args[index + 1], output_mode
-        del args[index]
-        del args[index]
-        return
-    except IndexError:
-        raise 'Incorrect syntax of >'
+    # try:
+    #     # > is always at the end
+    #     # index = args.index(to_find)
+    #     # output_location, output_mode = args[index + 1], output_mode
+    #     # del args[index]
+    #     # del args[index]
+    # except IndexError:
+    #     raise 'Incorrect syntax of >'
+    if args[-2] != to_find:
+        raise SyntaxError('Incorrect syntax of >')
+
+    output_location = args.pop(-1)
+    del args[-1]
+
 
 
 def my_split(s: str, comments=False, posix=True):
@@ -201,8 +222,55 @@ def my_split(s: str, comments=False, posix=True):
     return list(lex)
 
 
+def get_pre(comm: str):
+    if comm in inner_commands or comm in external_commands:
+        return ['python', "main.py"], False
+
+    return [], True
+
+
+def handle_pipes(comms):
+    # print('Debug: In "handle_pipes"')
+
+    comms = comms.split('|')
+    if len(comms) > 2:
+        raise SyntaxError('This program does not support more than 1 pipe')
+    if len(comms) < 2:
+        raise SyntaxError('Bad | synthax or somrthing')
+
+    comm1 = my_split(comms[0])
+    comm2 = my_split(comms[1])
+    # print(f'Debug: comm1 = {comm1}, comm2 = {comm2}')
+
+    pre_for_1, shell1 = get_pre(comm1[0].lower())
+    pre_for_2, shell2 = get_pre(comm2[0].lower())
+    # print(f'Debug: pre_for_1 = {pre_for_1}, pre_for_2 = {pre_for_2}')
+
+    args1 = pre_for_1 + comm1
+    args2 = pre_for_2 + comm2
+    # print(f'Debug: args1 = {args1}, args2 = {args2}')
+
+    p1 = subprocess.Popen(args1, stdout=subprocess.PIPE, shell=shell1)
+    p2 = subprocess.Popen(args2, stdin=p1.stdout, shell=shell2)
+    p1.stdout.close()
+
+    # print()
+    # print()
+    # print()
+
+    outs, errs = p2.communicate()
+
+    # print('Debug: Back in "handle_pipes"')
+
+    if outs:
+        output(outs)
+    elif errs:
+        output(errs)
+
+
+
 def main():
-    clear_screen(0)
+    # clear_screen(0)
     prompt = f'$P-@-$U > '
     print()
     while True:
@@ -213,33 +281,29 @@ def main():
                 continue  # goes back to the beginning of the loop
 
             x = my_split(comm)
+
+            if '|' in x:
+                handle_pipes(comm)
+                continue
+
             code = x[0].lower()  # function Name
             args = x[1:]  # additional arguments (len == 0 if there aren't any)
-            print(f'Debug: code = {code}, args = {args}')
+            # print(f'Debug: code = {code}, args = {args}')
 
             if code == 'exit':
                 sys.exit()
 
-            func = get_func(code)
+            is_shell = is_shell_command(code)
 
-            if func is None:
-                subprocess.run(comm, shell=True, encoding='utf-8')  # it's fine as long as you don't call to external commands when a shell command is first
+            if is_shell:
+                subprocess.run(comm, shell=True)  # works fine unless the script is running in pycharm and trying to
+                # call an external command with pipe (works fine in cmd though)
                 continue
 
-            do_pipes = False
-            if not do_pipes:
-                get_output_location(args)
-                output(func(args))
 
-            # elif code in inner_commands:
-            #     output(output_location, inner_commands[code](args))
-            #
-            #
-            # elif code in external_commands:
-            #     pass
-            #
-            # else:
-            #     print(f"'{code}' is not recognized as an internal or external command")
+            get_output_location(args)
+            output(run_func(code, args))
+            
 
             print()  # to make an empty line space down a line
 
@@ -248,14 +312,43 @@ def main():
             print()
         except Exception as e:
             print(e)
-            print(traceback.format_exc())  # Debug
+            # print(traceback.format_exc())  # Debug
 
     os.chdir(SAVE_DIR)
 
 
+def do_one_main():
+    # print('Debug: in "do_one_main"')
+
+    x = sys.argv[1:]
+
+    code = x[0].lower()
+    args = x[1:]
+    # print(f'Debug: code = {code}, args = {args}')
+
+    if code == 'exit':
+        sys.exit()
+
+    is_shell = is_shell_command(code)
+    # print(f'Debug: is_shell = {is_shell}')
+
+
+    if is_shell:
+        subprocess.run(x, shell=True)
+        return
+
+    # print(f'Debug:\n{ls([])}')
+    # temp = func([])
+    # output(f'Debug: temp = \n{temp}')
+    get_output_location(args)
+    output(run_func(code, args))
+
 
 if __name__ == '__main__':
-    main()
+    if len(sys.argv) > 1:
+        do_one_main()
+    else:
+        main()
     # os.chdir(SAVE_DIR)
 
     # print(my_split('dir>p.txt <"a file Name".txt'))
