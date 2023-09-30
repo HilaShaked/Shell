@@ -9,18 +9,22 @@ def hex_dump(kwargs):  # s = some string, SIZE  = number of bytes on each line
 
     :return: Void
     """
-    ret = ''
+    ret = b''
     with open(kwargs['file'], 'rb') as f:
         s = f.read()
-    size = kwargs.get('size',8)
-    #print("len=", len(s))  # ** prints the len here **
+
+    size = kwargs.get('size', 8)
+
+
     for p in [s[i * size: min((i + 1) * size, len(s))] for i in range(len(s) // size + 1)]:
         ret += b" ".join(
-            [b"%02X" % int(p[j].encode())  # (also line below) combine the hex numbers to one byte string (not really a string)
-             if j < len(p) else b"  " for j in range(size)] +
-              b"       " + b" ".join([chr(p[n])  # printing the chars next to the hex, like in the hex editor
-                                      if 31 < p[n] < 128 else b"." for n in range(len(p))]))
-    return ret
+            [b"%02X" % int(p[j])
+            if j < len(p) else b"  " for j in range(size)]) + \
+            b"       " + b" ".join([chr(p[n]).encode()
+                                   if 31 < p[n] < 128 else b"." for n in range(len(p))])
+    ret += b'\n'
+
+    return ret.decode()
 
 
 def run_hex(args: list):
