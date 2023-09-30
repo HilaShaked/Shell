@@ -10,7 +10,8 @@ def hex_dump(kwargs):  # s = some string, SIZE  = number of bytes on each line
     :return: Void
     """
     ret = ''
-    s = kwargs['file']
+    with open(kwargs['file'], 'rb') as f:
+        s = f.read()
     size = kwargs.get('size',8)
     #print("len=", len(s))  # ** prints the len here **
     for p in [s[i * size: min((i + 1) * size, len(s))] for i in range(len(s) // size + 1)]:
