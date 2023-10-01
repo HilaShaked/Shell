@@ -2,6 +2,7 @@ from shlex import shlex  # splits like in shell
 import subprocess
 import traceback
 import datetime
+import time
 import sys
 import os
 
@@ -10,29 +11,21 @@ SAVE_DIR = os.getcwd()
 
 FILE_PATH = os.path.dirname(os.path.realpath(__file__))
 curr_path = FILE_PATH
-os.chdir(curr_path)
+# os.chdir(curr_path)
 
 output_location = sys.stdout
 input_location = sys.stdin
 output_mode = 'w'
 
 
-PATH = [r'C:\Shell\externals']
+PATH = [r'C:\Shell\externals', curr_path + r'\externals']  # Would erase the first one, but then it looks too short
+
+prompt = f'$P-@-$U > '
 
 
-def get_prompt(prompt):
-    """
-    replaces all the $ stuff with their values specified in the 'to_replace' dictionary
-    """
-    to_replace = {'$P': curr_path, '$U': os.getenv("USERNAME"), '$_': '\n', '$G': '>', '$L': '<', '$B': '\\', '$F': '/'}
-    to_replace_order = ['$$'] + list(to_replace.keys()) + ['%temp%']  # so that $$ gets replaced first, and %temp% last
-    to_replace['$$'] = '%temp%'
-    to_replace['%temp%'] = '$'
+self_enviro = ['PATH', 'PROMPT', 'PYTHONPATH']
+enviro_vars = {}
 
-    for i in to_replace_order:
-        prompt = prompt.replace(i, to_replace[i])
-
-    return prompt
 
 
 def clear_screen(_):
@@ -57,26 +50,29 @@ def change_directory(new_path: str):
 
 def ls(args):
     """
-    -l	known as a long format that displays detailed information about files and directories.          √
-    -a	Represent all files Include hidden files and directories in the listing.                        √
-    -m	Displaying the files and directories by the most recently modified ones first.                  √
-    -c	Displaying the files and directories by the most recently created ones first.                   √
-    -r	known as reverse order which is used to reverse the default order of listing.                   √
-    -s	Sort files and directories by their sizes, listing the largest ones first.                      √
-    -d	List only directories                                                                           √
+    /l	known as a long format that displays detailed information about files and directories.          √
+    /a	Represent all files Include hidden files and directories in the listing.                        √
+    /m	Displaying the files and directories by the most recently modified ones first.                  √
+    /c	Displaying the files and directories by the most recently created ones first.                   √
+    /r	known as reverse order which is used to reverse the default order of listing.                   √
+    /s	Sort files and directories by their sizes, listing the largest ones first.                      √
+    /d	List only directories                                                                           √
     ** size will always take priority when sorting with both size and mod date
     """
-    if len(args) == 0 or args[0][0] == '-':
+    if len(args) == 0 or args[0][0] == '/':
         dir_path = curr_path
     else:
         dir_path = args[0]
         del args[0]
 
+    if len(args) != 0 and '/' in args[0] and '?' in args[0]:
+        return """"""
+
 
     dir_cont = os.listdir(dir_path)
 
     ret = [x for x in dir_cont if x[0] != '.']
-    if len(args) != 0 and '-' in args[0]:
+    if len(args) != 0 and '/' in args[0]:
         if 'a' in args[0]:
             ret = dir_cont
         elif 'd' in args[0]:
@@ -105,7 +101,8 @@ def ls_long(dir_data, dir_path):
     for i in dir_data:
         stat = os.stat(f'{dir_path}/{i}')
         # print(f"Debug: os.stat(f'{dir_path}/{i}') = {stat}")
-        curr = [get_mode(stat.st_mode), stat.st_size, get_time(stat.st_mtime), get_time(stat.st_ctime, True)]
+        curr = [get_mode(stat.st_mode), stat.st_size, get_time_from_seconds(stat.st_mtime),
+                get_time_from_seconds(stat.st_ctime, True)]
         ret += [f'{curr[0]} {str(curr[1]).zfill(8)}\t{curr[2]}\t{curr[3]}\t\t{i}']  # doesn't look well in files cus
         # tabs are different
 
@@ -124,11 +121,11 @@ def get_mode(st_mode):
     return ret
 
 
-def get_time(seconds, c=False):
-    time = datetime.datetime.fromtimestamp(seconds)
+def get_time_from_seconds(seconds, c=False):
+    curr_time = datetime.datetime.fromtimestamp(seconds)
     if c:
-        return time.strftime('%d-%m-%y %H:%M')
-    return time.strftime('%b %d-%m-%y %H:%M')
+        return curr_time.strftime('%d-%m-%y %H:%M')
+    return curr_time.strftime('%b %d-%m-%y %H:%M')
 
 
 def title(args):
@@ -143,21 +140,97 @@ def cool(_):
         time.sleep(1)
 
 
-# We need add functions to these:
+def my_set(args):  # initial set
+    def format_enviro():
+        enviro_sorted = sorted(enviro_vars)
+        return '\r\n'.join(f'{x}={enviro_vars[x]}' for x in enviro_sorted)
+
+    if len(args) == 0:
+        return format_enviro()
+
+
+def copy(args):  # initial copy
+    src_dst = [x for x in args if x[0] != '/']
+    src = src_dst[0]
+    dst = src_dst[1]
+
+    with open(src, 'r') as f:
+        data = f.read()
+
+    with open(dst, 'w') as f:
+        f.write(data)
+
+
+
 inner_commands = {'cls': clear_screen, 'cd': change_directory, 'ls': ls, 'title': title, 'cool': cool}
-external_commands = {'print': 'print.py'}
+# external_commands = {'print': 'print.py'}
 
 
-def run_func(func, args):
+
+def get_prompt():
+    """ replaces all the $ stuff with their values specified in the 'to_replace' dictionary """
+    global prompt
+
+    to_replace = {'$P': curr_path, '$U': os.getenv("USERNAME"), '$_': '\n', '$G': '>', '$L': '<', '$B': '\\', '$F': '/'}
+    to_replace_order = ['$$'] + list(to_replace.keys()) + ['%temp%']  # so that $$ gets replaced first, and %temp% last
+    to_replace['$$'] = '%temp%'
+    to_replace['%temp%'] = '$'
+
+    for i in to_replace_order:
+        prompt = prompt.replace(i, to_replace[i])
+
+    return prompt
+
+
+def run_func(func: str, args: list):
     if func in inner_commands:
         return inner_commands[func](args)
-    if func in external_commands:
-        temp = subprocess.run(['python', external_commands[func]] + args)
+    # if func in external_commands:
+    #     temp = subprocess.run(['python', external_commands[func]] + args)
+    #     return temp.stdout
+    ret = run_external(func, args)
+    if ret is None:
+        ret = run_external(func, args, add_python=True)
+    return ret
+
+
+def run_external(func: str, args: list, add_python=False):
+    before = []
+    if add_python:
+        before = ['python']
+        func += '.py'
+
+    if func in os.listdir(curr_path):
+        temp = subprocess.run(before + [func] + args)
         return temp.stdout
+    else:
+        for i in PATH:
+            try:
+                dir_cont = os.listdir(i)
+                if func in dir_cont:
+                    temp = subprocess.run(before + [i + f'/{func}'] + args)
+                    return temp.stdout
+            except FileNotFoundError:
+                pass
 
 
-def is_shell_command(func_name):
-    return not (func_name in inner_commands or func_name in external_commands)
+def does_external_exist(func_name: str):
+    # if func_name in external_commands:
+    #     return True
+
+    for i in PATH + [curr_path]:
+        try:
+            dir_cont = os.listdir(i)
+            if func_name in dir_cont or func_name + '.py' in dir_cont:
+                return True
+        except FileNotFoundError:
+            pass
+
+    return False
+
+
+def is_shell_command(func_name: str):
+    return not (func_name in inner_commands or does_external_exist(func_name) or func_name in self_enviro)
 
 
 def output(to_output):  # very temp function. need to change
@@ -173,6 +246,7 @@ def output(to_output):  # very temp function. need to change
 
     with open(output_location, output_mode) as f:
         print(to_output, file=f)
+        sys.stdout.flush()
 
     # print('error', f'\nto_output = {to_output}')
 
@@ -222,25 +296,25 @@ def my_split(s: str, comments=False, posix=True):
     return list(lex)
 
 
-def get_pre(comm: str):
-    if comm in inner_commands or comm in external_commands:
-        return ['python', "main.py"], False
-
-    return [], True
-
-
-def handle_pipes(comms):
+def handle_pipes(commands: str):
     # print('Debug: In "handle_pipes"')
 
-    comms = comms.split('|')
-    if len(comms) > 2:
+    commands = commands.split('|')
+    if len(commands) > 2:
         raise SyntaxError('This program does not support more than 1 pipe')
-    if len(comms) < 2:
+    if len(commands) < 2:
         raise SyntaxError('Bad | synthax or somrthing')
 
-    comm1 = my_split(comms[0])
-    comm2 = my_split(comms[1])
+    comm1 = my_split(commands[0])
+    comm2 = my_split(commands[1])
     # print(f'Debug: comm1 = {comm1}, comm2 = {comm2}')
+
+    def get_pre(comm: str):
+        # if comm in inner_commands or comm in external_commands:
+        if comm in inner_commands:
+            return ['python', "main.py"], False
+
+        return [], True
 
     pre_for_1, shell1 = get_pre(comm1[0].lower())
     pre_for_2, shell2 = get_pre(comm2[0].lower())
@@ -268,14 +342,44 @@ def handle_pipes(comms):
         output(errs)
 
 
+def add_cmd_path_to_path():
+    global enviro_vars
+
+    out = subprocess.run(['path'], shell=True, capture_output=True).stdout.decode().strip().split('=')
+    out = out[-1].split(';')
+    enviro_vars['PATH'] += out  # our path with the cmd path
+
+
+def add_to_env_the_cmd_env():
+    global enviro_vars
+
+    out = subprocess.run('set', shell=True, capture_output=True).stdout.strip().split(b'\r\n')
+
+    for i in out:
+        curr = i.split(b'=')
+        key = curr[0].decode()
+        if key not in enviro_vars:
+            enviro_vars[key] = curr[1].decode()
+
+
+def reset_enviro_vars():
+    global enviro_vars
+
+    enviro_vars = {'PATH': PATH, 'PROMPT': prompt, 'PYTHONPATH': curr_path}
+
+    add_to_env_the_cmd_env()
+    add_cmd_path_to_path()
+    ';'.join(enviro_vars['PATH'])
+
 
 def main():
     # clear_screen(0)
-    prompt = f'$P-@-$U > '
-    print()
     while True:
+        print()  # to make an empty line space down a line
         try:
-            comm = input(get_prompt(prompt)).strip()
+            reset_enviro_vars()
+            time.sleep(0.05)
+            comm = input(get_prompt()).strip()
 
             if comm == '':
                 continue  # goes back to the beginning of the loop
@@ -303,16 +407,14 @@ def main():
 
             get_output_location(args)
             output(run_func(code, args))
-            
-
-            print()  # to make an empty line space down a line
 
 
         except KeyboardInterrupt:
-            print()
+            pass  # moved the  print to the beginning of the function
         except Exception as e:
             print(e)
-            # print(traceback.format_exc())  # Debug
+            print(f'Debug:')
+            print(traceback.format_exc())  # Debug
 
     os.chdir(SAVE_DIR)
 
@@ -345,6 +447,7 @@ def do_one_main():
 
 
 if __name__ == '__main__':
+    reset_enviro_vars()
     if len(sys.argv) > 1:
         do_one_main()
     else:
