@@ -1,3 +1,4 @@
+from ls_stuff import *
 from shlex import shlex  # splits like in shell
 import subprocess
 import traceback
@@ -50,29 +51,29 @@ def change_directory(new_path: str):
 
 def ls(args):
     """
-    /l	known as a long format that displays detailed information about files and directories.          √
-    /a	Represent all files Include hidden files and directories in the listing.                        √
-    /m	Displaying the files and directories by the most recently modified ones first.                  √
-    /c	Displaying the files and directories by the most recently created ones first.                   √
-    /r	known as reverse order which is used to reverse the default order of listing.                   √
-    /s	Sort files and directories by their sizes, listing the largest ones first.                      √
-    /d	List only directories                                                                           √
+    -l	known as a long format that displays detailed information about files and directories.          √
+    -a	Represent all files Include hidden files and directories in the listing.                        √
+    -m	Displaying the files and directories by the most recently modified ones first.                  √
+    -c	Displaying the files and directories by the most recently created ones first.                   √
+    -r	known as reverse order which is used to reverse the default order of listing.                   √
+    -s	Sort files and directories by their sizes, listing the largest ones first.                      √
+    -d	List only directories                                                                           √
     ** size will always take priority when sorting with both size and mod date
     """
-    if len(args) == 0 or args[0][0] == '/':
+    if len(args) == 0 or args[0][0] == '-':
         dir_path = curr_path
     else:
         dir_path = args[0]
         del args[0]
 
-    if len(args) != 0 and '/' in args[0] and '?' in args[0]:
+    if len(args) != 0 and '-' in args[0] and '?' in args[0]:
         return """"""
 
 
     dir_cont = os.listdir(dir_path)
 
     ret = [x for x in dir_cont if x[0] != '.']
-    if len(args) != 0 and '/' in args[0]:
+    if len(args) != 0 and '-' in args[0]:
         if 'a' in args[0]:
             ret = dir_cont
         elif 'd' in args[0]:
@@ -95,38 +96,38 @@ def ls(args):
 
     return '\n'.join(ret)
 
-
-def ls_long(dir_data, dir_path):
-    ret = ['\nmode\t  size  \tlast modified\t\tdate created  \t\tname\n']
-    for i in dir_data:
-        stat = os.stat(f'{dir_path}/{i}')
-        # print(f"Debug: os.stat(f'{dir_path}/{i}') = {stat}")
-        curr = [get_mode(stat.st_mode), stat.st_size, get_time_from_seconds(stat.st_mtime),
-                get_time_from_seconds(stat.st_ctime, True)]
-        ret += [f'{curr[0]} {str(curr[1]).zfill(8)}\t{curr[2]}\t{curr[3]}\t\t{i}']  # doesn't look well in files cus
-        # tabs are different
-
-    return ret
-
-
-def get_mode(st_mode):
-    modes = ['r', 'w', 'x']
-    st_mode = bin(st_mode)[-9:]
-    ret = ''
-    for i, val in enumerate(st_mode):
-        if val == '0':
-            ret += '-'
-            continue
-        ret += modes[i % 3]
-    return ret
-
-
-def get_time_from_seconds(seconds, c=False):
-    curr_time = datetime.datetime.fromtimestamp(seconds)
-    if c:
-        return curr_time.strftime('%d-%m-%y %H:%M')
-    return curr_time.strftime('%b %d-%m-%y %H:%M')
-
+#
+# def ls_long(dir_data, dir_path):
+#     ret = ['\nmode\t  size  \tlast modified\t\tdate created  \t\tname\n']
+#     for i in dir_data:
+#         stat = os.stat(f'{dir_path}/{i}')
+#         # print(f"Debug: os.stat(f'{dir_path}/{i}') = {stat}")
+#         curr = [get_mode(stat.st_mode), stat.st_size, get_time_from_seconds(stat.st_mtime),
+#                 get_time_from_seconds(stat.st_ctime, True)]
+#         ret += [f'{curr[0]} {str(curr[1]).zfill(8)}\t{curr[2]}\t{curr[3]}\t\t{i}']  # doesn't look well in files cus
+#         # tabs are different
+#
+#     return ret
+#
+#
+# def get_mode(st_mode):
+#     modes = ['r', 'w', 'x']
+#     st_mode = bin(st_mode)[-9:]
+#     ret = ''
+#     for i, val in enumerate(st_mode):
+#         if val == '0':
+#             ret += '-'
+#             continue
+#         ret += modes[i % 3]
+#     return ret
+#
+#
+# def get_time_from_seconds(seconds, c=False):
+#     curr_time = datetime.datetime.fromtimestamp(seconds)
+#     if c:
+#         return curr_time.strftime('%d-%m-%y %H:%M')
+#     return curr_time.strftime('%b %d-%m-%y %H:%M')
+#
 
 def title(args):
     return args[0].title()
@@ -138,15 +139,6 @@ def cool(_):
         b = "Loading" + "." * x
         print(b, end="\r")
         time.sleep(1)
-
-
-def my_set(args):  # initial set
-    def format_enviro():
-        enviro_sorted = sorted(enviro_vars)
-        return '\r\n'.join(f'{x}={enviro_vars[x]}' for x in enviro_sorted)
-
-    if len(args) == 0:
-        return format_enviro()
 
 
 def copy(args):  # initial copy
@@ -161,9 +153,18 @@ def copy(args):  # initial copy
         f.write(data)
 
 
+def my_set(args):  # initial set
+    def format_enviro():
+        enviro_sorted = sorted(enviro_vars)
+        return '\r\n'.join(f'{x}={enviro_vars[x]}' for x in enviro_sorted)
+
+    if len(args) == 0:
+        return format_enviro()
+
+
 
 inner_commands = {'cls': clear_screen, 'cd': change_directory, 'ls': ls, 'title': title, 'cool': cool}
-# external_commands = {'print': 'print.py'}
+external_commands = {'print': 'print.py'}
 
 
 
@@ -171,7 +172,10 @@ def get_prompt():
     """ replaces all the $ stuff with their values specified in the 'to_replace' dictionary """
     global prompt
 
-    to_replace = {'$P': curr_path, '$U': os.getenv("USERNAME"), '$_': '\n', '$G': '>', '$L': '<', '$B': '\\', '$F': '/'}
+    to_replace = {'$P': curr_path, '$U': os.getenv("USERNAME"), '$_': '\n', '$G': '>', '$L': '<', '$b': '\\', '$f': '/',
+                  '$T': datetime.datetime.now().strftime("%H:%M"), '$d': datetime.datetime.now().strftime('%d-%m-%y'),
+                  '$D': datetime.datetime.now().strftime('%a %d-%m-%y'), '$A': '&', '$B': '|', '$C': '(', '$F': ')',
+                  '$H': '\b', '$N': enviro_vars['SystemDrive'], '$Q': '=', '$S': ' '}
     to_replace_order = ['$$'] + list(to_replace.keys()) + ['%temp%']  # so that $$ gets replaced first, and %temp% last
     to_replace['$$'] = '%temp%'
     to_replace['%temp%'] = '$'
@@ -458,3 +462,5 @@ if __name__ == '__main__':
     # print(my_split('dir>>p.txt <"a file Name, wow".txt'))
     # print(get_prompt('$$U$U: $P $G$_$L$L$$ $'))
     # change_directory(input('mashehu > cd '))
+
+    # print(datetime.datetime.now().strftime("%d.%m.%Y %H:%M"))
