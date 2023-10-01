@@ -61,27 +61,30 @@ def hexdump():
 
             if args.two_bytes_decimal:  # -d
                 data = one_data_line
-                decimal_string = " ".join([str(int(f"{data[i + 1]:02x}{data[i]:02x}", 16))
+                decimal_string = " ".join([str(int(f"{data[i + 1]:02x}{data[i]:02x}", 16)) if i + 1 < len(data)
+                                           else f'{int(f"{data[i]}", 16)}'
                                            for i in range(0, len(data), 2)])
                 print(f"{n * 16:08x}  {decimal_string}")
 
             if args.two_bytes_octal:  # -o
                 data = one_data_line
-                oct_string = " ".join([f'{int(f"{data[i + 1]:02x}{data[i]:02x}", 16):06o}'
-                                           for i in range(0, len(data), 2)])
+                oct_string = " ".join([f'{int(f"{data[i + 1]:02x}{data[i]:02x}", 16):06o}' if i + 1 < len(data)
+                                       else f'{data[i]:06o}'
+                                       for i in range(0, len(data), 2)])
                 print(f"{n * 16:08x}  {oct_string}")
 
             if args.two_bytes_hex:  # -x
                 data = one_data_line
-                hex_string = "   ".join([f"{data[i + 1]:02x}{data[i]:02x}" for i in range(0, len(data), 2)])
+                hex_string = "   ".join([f"{data[i + 1]:02x}{data[i]:02x}" if i + 1 < len(data) else f"{data[i]:04x}"
+                                         for i in range(0, len(data), 2)])
                 print(f"{n * 16:08x}   {hex_string}")
 
             if args.no_squeezing or no_args:  # -v
                 data = one_data_line
-                hex_string = " ".join([f"{data[i + 1]:02x}{data[i]:02x}" if i + 1 < len(data) else f"00{data[i]:02x}"
+                hex_string = " ".join([f"{data[i + 1]:02x}{data[i]:02x}" if i + 1 < len(data) else f"{data[i]:04x}"
                                        for i in range(0, len(data), 2)])
                 print(f"{n * 16:08x}  {hex_string}")
-
+                
             n += 1
 
     file_size = os.path.getsize(args.FILE)
