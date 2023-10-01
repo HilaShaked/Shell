@@ -1,19 +1,14 @@
 import datetime
-import random
 import os
-
 
 
 def ls_long(dir_data, dir_path):
     lines = []  # a list of lists
     for i in dir_data:
         stat = os.stat(f'{dir_path}/{i}')
-        # print(f"Debug: os.stat(f'{dir_path}/{i}') = {stat}")
         curr = [get_mode(stat.st_mode), f'{stat.st_size}', get_time_from_seconds(stat.st_mtime),
                 get_time_from_seconds(stat.st_ctime, True), i]
         lines += [curr]
-        # ret += [f'{curr[0]} {str(curr[1]).zfill(8)}\t{curr[2]}\t{curr[3]}\t\t{i}']  # doesn't look well in files cus
-        # tabs are different
 
     return format_ls_long(lines)
 
@@ -41,20 +36,9 @@ def format_ls_long(lines):
     col_widths = get_col_widths(lines)
     titles = ['mode', 'size', 'last modified', 'date created', 'name']
     space_amount = 4
-    # diffs = [col_widths[i] - len(titles[i]) for i in range(len(titles) - 1)]
 
-    # ret = [
-    #     f"{titles[0]}{' ' * diffs[0]}"
-    #     + ' ' * space_amount +
-    #     f"{' ' * diffs[1]}{titles[1]}"
-    #     + ' ' * space_amount +
-    #     f"{diffs[2]//2 * ' '}{titles[2]}" + f"{(diffs[2]//2 + diffs[2] % 2) * ' '}"
-    #     + ' ' * space_amount +
-    #      f"{diffs[3]//2 * ' '}{titles[3]}" + f"{(diffs[3]//2 + diffs[3] % 2) * ' '}"
-    #     + ' ' * space_amount +
-    #     f"{titles[4]}"
-    #        ]
     ret = format_titles(titles, col_widths, space_amount)
+
     for line in lines:
         temp = (' '*space_amount).join([val.rjust(col_widths[i]) for i, val in enumerate(line[:-1])] + [line[-1]])
         ret += [temp]
@@ -71,11 +55,11 @@ def format_titles(titles: list, col_widths: list, spaces: int):
 
     for i, val in enumerate(titles[2:-1]):
         temp = diffs[i + 2]//2
-        mid_titles += [f"{temp * ' '}{val}" + f"{(temp + diffs[2] % 2) * ' '}"]
+        mid_titles += [f"{temp * ' '}{val}" + f"{(temp + diffs[i] % 2) * ' '}"]
 
-    last_title = f"\b{titles[-1]}"
+    # last_title = f"{titles[-1]}"
 
-    ret = (' ' * spaces).join([first_title, sec_title] + mid_titles + [last_title])
+    ret = (' ' * spaces).join([first_title, sec_title] + mid_titles + [titles[-1]])
     return [ret]
 
 

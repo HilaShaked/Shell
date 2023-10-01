@@ -1,5 +1,5 @@
-from ls_stuff import *
 from shlex import shlex  # splits like in shell
+from ls_stuff import *
 import subprocess
 import traceback
 import datetime
@@ -12,7 +12,7 @@ SAVE_DIR = os.getcwd()
 
 FILE_PATH = os.path.dirname(os.path.realpath(__file__))
 curr_path = FILE_PATH
-# os.chdir(curr_path)
+
 
 output_location = sys.stdout
 input_location = sys.stdin
