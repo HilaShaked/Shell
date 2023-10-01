@@ -1,95 +1,5 @@
 import argparse
 import os
-import sys
-
-
-def hex_dump(dic) -> str:  # s = some string, SIZE  = number of bytes on each line
-    """
-    print base 16 every byte
-    :param s: byte array
-    :param SIZE: optional (how many bytes per line)
-
-    :return: Void
-    """
-    ret = b''
-    read_amount = dic.get('n', -1)
-    with open(dic['file'], 'rb') as f:
-        if read_amount <= -1:
-            s = f.read()
-        else:
-            s = f.read(read_amount)
-
-
-
-    size = dic.get('size', 16)
-
-    # print("len=", len(s))  # ** prints the len here **
-    # for p in [s[i * SIZE: min((i + 1) * SIZE, len(s))] for i in range(len(s) // SIZE + 1)]:
-    #     return (b" ".join(
-    #         [b"%02X" % int(p[j])  # (also line below) combine the hex numbers to one byte string (not really a string)
-    #          if j < len(p) else b"  " for j in range(SIZE)]).decode() +
-    #           "       " + " ".join([chr(p[n])  # printing the chars next to the hex, like in the hex editor
-    #                                   if 31 < p[n] < 128 else "." for n in range(len(p))]))
-
-
-    # print("len=", len(s))  # ** prints the len here **
-    for p in [s[i * size: min((i + 1) * size, len(s))] for i in range(len(s) // size + 1)]:
-        ret += b"" + b" ".join([b"%02X" % int(p[j]) if j < len(p) else b"  " for j in range(size)]) + \
-              b"       |" + b" ".join([chr(p[n]).encode() if 31 < p[n] < 128 else b"." for n in range(len(p))])
-
-        ret += b'|\n'
-
-    return ret.decode()
-
-
-
-def run_hex(args):
-    when_help = """
-    Usage:
-    hexdump [options] <file>...
-    Display file contents in hexadecimal, decimal, octal, or ascii.
-    Options:
-    -b, --one-byte-octal      one-byte octal display
-    -c, --one-byte-char       one-byte character display
-    -C, --canonical           canonical hex+ASCII display
-    -d, --two-bytes-decimal   two-byte decimal display
-    -o, --two-bytes-octal     two-byte octal display
-    -x, --two-bytes-hex       two-byte hexadecimal display
-    -n, --length <length>     interpret only length bytes of input
-    -s, --skip <offset>       skip offset bytes from the beginning
-    -v, --no-squeezing        output identical lines
-    -h, --help                display this help
-    """
-    # ** o is the little indian way it normally presents in, but in octal
-    # ** x is exactly the same as the normal way, but with more spaces between he numbers
-    # ** v is x but without the tabs between (so it's just normal)
-    # should we keep the long stuff?
-    # also you can stack the options (-bC, for example, will have one line like -b, and another one like -C)
-
-    dictt = {'file': args[-1]}
-    if '-b' in args:
-        dictt['b'] = True
-    if '-c' in args:
-        dictt['c'] = True
-    if '-C' in args:
-        dictt['C'] = True
-    if '-d' in args:
-        dictt['d'] = True
-    if '-o' in args:
-        dictt['o'] = True
-    if '-x' in args:
-        dictt['x'] = True
-    if '-n' in args:
-        dictt['n'] = int(args[args.index('-n') + 1])
-    if '-s' in args:
-        dictt['s'] = int(args[args.index('-s') + 1])
-    if '-v' in args:
-        dictt['v'] = True
-    if '-h' in args or '--help' in args:
-        print(when_help)
-        return
-    print(hex_dump(dictt))
-
 
 
 def hexdump():
@@ -181,9 +91,5 @@ def hexdump():
     else:
         print(f"{file_size:07x}")
 
-
-
-# print(sys.argv[1])
-# run_hex(sys.argv[1:])
 
 hexdump()
