@@ -78,7 +78,8 @@ def hexdump():
 
             if args.no_squeezing or no_args:  # -v
                 data = one_data_line
-                hex_string = " ".join([f"{data[i + 1]:02x}{data[i]:02x}" for i in range(0, len(data), 2)])
+                hex_string = " ".join([f"{data[i + 1]:02x}{data[i]:02x}" if i + 1 < len(data) else f"00{data[i]:02x}"
+                                       for i in range(0, len(data), 2)])
                 print(f"{n * 16:08x}  {hex_string}")
 
             n += 1
@@ -92,4 +93,5 @@ def hexdump():
         print(f"{file_size:07x}")
 
 
-hexdump()
+if __name__ == '__main__':
+    hexdump()
