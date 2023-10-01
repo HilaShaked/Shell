@@ -53,11 +53,10 @@ def format_titles(titles: list, col_widths: list, spaces: int):
     sec_title = f"{' ' * diffs[1]}{titles[1]}"
     mid_titles = []
 
-    for i, val in enumerate(titles[2:-1]):
-        temp = diffs[i + 2]//2
-        mid_titles += [f"{temp * ' '}{val}" + f"{(temp + diffs[i] % 2) * ' '}"]
+    for i in range(2, len(titles) - 1):
+        temp = diffs[i]//2
+        mid_titles += [f"{temp * ' '}{titles[i]}" + f"{(temp + diffs[i] % 2) * ' '}"]
 
-    # last_title = f"{titles[-1]}"
 
     ret = (' ' * spaces).join([first_title, sec_title] + mid_titles + [titles[-1]])
     return [ret]
