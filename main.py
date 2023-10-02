@@ -24,23 +24,22 @@ PATH = [curr_path + r'\externals']
 prompt = f'$P-@-$U > '
 
 
-self_enviro = ['PATH', 'PROMPT', 'PYTHONPATH']
+self_enviro = ['PATH', 'PROMPT']
 enviro_vars = {}
 
 
 
-def clear_screen(_):
+def clear_screen(_) -> None:
     os.system('cls')
 
 
-def change_directory(new_path: str):
+def change_directory(new_path: list[str]) -> None or str:
     global curr_path
 
     if len(new_path) == 0:
         return curr_path
 
-    if isinstance(new_path, list):
-        new_path = new_path[0]
+    new_path = new_path[0]
 
     try:
         os.chdir(new_path)
@@ -49,7 +48,7 @@ def change_directory(new_path: str):
         raise e
 
 
-def ls(args):
+def ls(args: list[str]) -> str:
     """
     -l	known as a long format that displays detailed information about files and directories.          √
     -a	Represent all files Include hidden files and directories in the listing.                        √
@@ -73,6 +72,7 @@ def ls(args):
     dir_cont = os.listdir(dir_path)
 
     ret = [x for x in dir_cont if x[0] != '.']
+    # need_Todo: add a variable with all the -x stuff, mabye make a string with join and check its length
     if len(args) != 0 and '-' in args[0]:
         if 'a' in args[0]:
             ret = dir_cont
@@ -97,21 +97,28 @@ def ls(args):
     return '\n'.join(ret)
 
 
-def title(args):
-    return args[0].title()
+def title(args: list[str]) -> None:
+    os.system(f'title {args[0]}')
 
 
-def cool(args):
+def cool(args: list[str]) -> None:
+    before = '\r'
+    end = ''
+
+    if '/r' in args:
+        before = ''
+        end = '\n'
+
     for x in range(0, 4):
-        b = "\rLoading" + "." * x
-        print(b, end='')
+        b = "Loading" + "." * x
+        print(before + b, end=end)
         time.sleep(1)
 
     if '/n' in args:
         print()
 
 
-def copy(args):  # initial copy
+def copy(args: list[str]):  # initial copy
     src_dst = [x for x in args if x[0] != '/']
     src = src_dst[0]
     dst = src_dst[1]
@@ -123,39 +130,53 @@ def copy(args):  # initial copy
         f.write(data)
 
 
-def my_set(args: list[str]):
-    reset_enviro_vars()
+def my_set(args: list[str]) -> None or str:
+    global enviro_vars
 
-    def format_enviro(var_name: str or None):
+    def format_enviro(var_name: str or None) -> str:
         if var_name is None or var_name not in enviro_vars:
             enviro_sorted = sorted(enviro_vars)
             return '\r\n'.join(f'{x}={enviro_vars[x]}' for x in enviro_sorted)
 
         return f'{var_name}={enviro_vars[var_name]}'
 
-    def set_self_enviro(var_name):
-        pass
+    def set_self_enviro(var_name: str, new_val: str) -> None:
+        if var_name == 'PATH':
+            global PATH
+            PATH = new_val
+            return
+        if var_name == 'PROMPT':
+            global prompt
+            prompt = new_val
+            return
+
 
     if len(args) == 0:
         return format_enviro(None)
 
-    if '=' not in args[0]:
+
+    args = ' '.join(args)
+    if '=' not in my_split(args, add_eq=True):
         return format_enviro(args[0].upper())
 
-    eq_index = args[0].index('=')
-    var, new_val = args[0][:eq_index], args[0][eq_index:]
-    if var in self_enviro:
-        set_self_enviro(var)
-        return
 
-    subprocess.run(['set', f'{var}={new_val}'], stdin=stdin, stdout=stdout, shell=True)
+    eq_index = args.index('=')
+    var, val = args[:eq_index].strip(), args[eq_index + 1:].strip()
 
 
+    if var.upper() in self_enviro:
+        var = var.upper()
+        set_self_enviro(var, val)
+
+
+    enviro_vars[var] = val
+    # reset_enviro_vars()
 
 
 
-inner_commands = {'cls': clear_screen, 'cd': change_directory, 'ls': ls, 'title': title, 'cool': cool}
-# external_commands = {'print': 'print.py'}
+
+inner_commands = {'cls': clear_screen, 'cd': change_directory, 'ls': ls, 'title': title, 'cool': cool, 'set': my_set}
+
 
 
 
@@ -185,8 +206,8 @@ def run_func(func: str, args: list):
     if func in inner_commands:
         return inner_commands[func](args)
 
-    run_external(func, args)
-    run_external(func, args, add_python=True)
+    if not run_external(func, args):
+        run_external(func, args, add_python=True)
 
 
 def run_external(func: str, args: list, add_python=False):
@@ -196,27 +217,20 @@ def run_external(func: str, args: list, add_python=False):
         func += '.py'
 
     if func in os.listdir(curr_path):
-        # temp = subprocess.run(before + [func] + args, stdin=stdin, stdout=stdout)
-        # return temp.stdout
         subprocess.run(before + [func] + args, stdin=stdin, stdout=stdout, shell=True)
-        return
+        return True
     else:
         for i in PATH:
             try:
                 dir_cont = os.listdir(i)
                 if func in dir_cont:
-                    # temp = subprocess.run(before + [i + f'/{func}'] + args, stdin=stdin, stdout=stdout)
-                    # return temp.stdout
                     subprocess.run(before + [f'{i}/{func}'] + args, stdin=stdin, stdout=stdout, shell=True)
-                    return
+                    return True
             except FileNotFoundError:
                 pass
 
 
 def does_external_exist(func_name: str):
-    # if func_name in external_commands:
-    #     return True
-
     for i in PATH + [curr_path]:
         try:
             dir_ = os.listdir(i)
@@ -229,7 +243,7 @@ def does_external_exist(func_name: str):
 
 
 def is_shell_command(func_name: str):
-    return not (func_name in inner_commands or does_external_exist(func_name))  #  or func_name in self_enviro
+    return not (func_name in inner_commands or does_external_exist(func_name))  # or func_name in self_enviro
     # don't remember why I added ' or func_name in self_enviro'
 
 
@@ -310,18 +324,26 @@ def get_input_location(args: list):
 
 
 
-def my_split(s: str, comments=False, posix=True):
+def my_split(s: str, comments=False, posix=True, add_eq=False):
     """
     the shlex.split() calls shlex with 'punctuation_chars=False'
     so stuff like < don't get split
     this function just does what shlex.split() does but with 'punctuation_chars=True'
     """
-    s = s.replace('\\', '/')  # cuz the shlex makes '\' disappear, and there shouldn't be a difference between them
+    # s = s.replace('\\', '/')  # cuz the shlex makes '\' disappear, and there shouldn't be a difference between them
+    # fixed the problem
     if s is None:
         import warnings
         warnings.warn("Passing None for 's' to shlex.split() is deprecated.",
                       DeprecationWarning, stacklevel=2)
     lex = shlex(s, posix=posix, punctuation_chars=True)
+
+    if add_eq:
+        lex._punctuation_chars += '='  # noqa
+        lex.wordchars = lex.wordchars.replace('=', '')
+    lex.wordchars += '\\'
+    lex.escape = '\x1b'
+
     lex.whitespace_split = True
     if not comments:
         lex.commenters = ''
@@ -343,10 +365,22 @@ def add_to_env_the_cmd_env():
     out = subprocess.run('set', shell=True, capture_output=True).stdout.strip().split(b'\r\n')
 
     for i in out:
-        curr = i.split(b'=')
+        curr: list[bytes] = i.split(b'=')
         key = curr[0].decode()
         if key not in enviro_vars:
-            enviro_vars[key] = curr[1].decode()
+            try:
+                enviro_vars[key] = curr[1].decode(errors='replace')
+            except UnicodeDecodeError:  # does this error only in pycharm and I have no idea why
+                # enviro_vars[key] = curr[1].decode('utf-8', errors='replace')
+                # it's cuz of 'PYTHONPATH', it has the ? in a square symbol
+                # print(f'Debug: key = {key}')
+                # print(f'Debug: enviro_vars[{key}] = {enviro_vars[key]}')
+                # found a way to fix the exception (kind of)
+                # I can just add PYTHONPATH to the dictionary beforehand
+                # but this error is relevant only to pycharm, and this should be used in shell
+                # hmm...
+                # I added it to the dictionary
+                pass
 
 
 def reset_enviro_vars():
@@ -409,13 +443,14 @@ def main():
     while True:
         print()  # to make an empty line space down a line
         try:
-            time.sleep(0.05)
+            time.sleep(0.05)  # to prevent errors from getting printed after the prompt when using subprocess
             comm = input(get_prompt()).strip()
 
             if comm == '':
                 continue  # goes back to the beginning of the loop
 
             x = my_split(comm)
+            # print(f'Debug: x = {x}')
 
             if '|' in x:
                 handle_pipes(comm)
@@ -423,7 +458,6 @@ def main():
 
             code = x[0].lower()  # function Name
             args = x[1:]  # additional arguments (len == 0 if there aren't any)
-            print(f'Debug: code = {code}, args = {args}')
 
             if code == 'exit':
                 sys.exit()
@@ -445,7 +479,6 @@ def main():
             pass  # moved the  print to the beginning of the function
         except Exception as e:
             print(e)
-            print(f'Debug:')
             print('Debug:' + traceback.format_exc())
 
     os.chdir(SAVE_DIR)
@@ -483,7 +516,7 @@ def pre_main():
 
 
 if __name__ == '__main__':
-
+    pre_main()
     if len(sys.argv) > 1:
         do_one_main()
     else:

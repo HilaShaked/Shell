@@ -2,7 +2,7 @@ import datetime
 import os
 
 
-def ls_long(dir_data, dir_path):
+def ls_long(dir_data: list[str], dir_path: str) -> list[str]:
     lines = []  # a list of lists
     for i in dir_data:
         stat = os.stat(f'{dir_path}/{i}')
@@ -13,7 +13,7 @@ def ls_long(dir_data, dir_path):
     return format_ls_long(lines)
 
 
-def get_mode(st_mode):
+def get_mode(st_mode) -> str:
     modes = ['r', 'w', 'x']
     st_mode = bin(st_mode)[-9:]
     ret = ''
@@ -25,14 +25,14 @@ def get_mode(st_mode):
     return ret
 
 
-def get_time_from_seconds(seconds, c=False):
+def get_time_from_seconds(seconds, c=False) -> str:
     curr_time = datetime.datetime.fromtimestamp(seconds)
     if c:
         return curr_time.strftime('%d-%m-%y %H:%M')
     return curr_time.strftime('%a %d-%m-%y %H:%M')
 
 
-def format_ls_long(lines):
+def format_ls_long(lines: list[str]) -> list[str]:
     col_widths = get_col_widths(lines)
     titles = ['mode', 'size', 'last modified', 'date created', 'name']
     space_amount = 4
@@ -46,7 +46,7 @@ def format_ls_long(lines):
     return ret
 
 
-def format_titles(titles: list, col_widths: list, spaces: int):
+def format_titles(titles: list[str], col_widths: list[int], spaces: int) -> list[str]:
     diffs = [col_widths[i] - len(titles[i]) for i in range(len(titles) - 1)]
 
     first_title = f"{titles[0]}{' ' * diffs[0]}"
@@ -62,7 +62,7 @@ def format_titles(titles: list, col_widths: list, spaces: int):
     return [ret]
 
 
-def get_col_widths(lines):
+def get_col_widths(lines: list[str]) -> list[int]:
     max_field_widths = []
     for i in range(0, len(lines[0])):
         col = [line[i] for line in lines]  # line[i] is current field (col is a list of field #i in each line
