@@ -14,12 +14,12 @@ FILE_PATH = os.path.dirname(os.path.realpath(__file__))
 curr_path = FILE_PATH
 
 
-output_location = sys.stdout
-input_location = sys.stdin
+stdout = sys.stdout
+stdin = sys.stdin
 output_mode = 'w'
 
 
-PATH = [r'C:\Shell\externals', curr_path + r'\externals']  # Would erase the first one, but then it looks too short
+PATH = [curr_path + r'\externals']
 
 prompt = f'$P-@-$U > '
 
@@ -96,49 +96,19 @@ def ls(args):
 
     return '\n'.join(ret)
 
-#
-# def ls_long(dir_data, dir_path):
-#     ret = ['\nmode\t  size  \tlast modified\t\tdate created  \t\tname\n']
-#     for i in dir_data:
-#         stat = os.stat(f'{dir_path}/{i}')
-#         # print(f"Debug: os.stat(f'{dir_path}/{i}') = {stat}")
-#         curr = [get_mode(stat.st_mode), stat.st_size, get_time_from_seconds(stat.st_mtime),
-#                 get_time_from_seconds(stat.st_ctime, True)]
-#         ret += [f'{curr[0]} {str(curr[1]).zfill(8)}\t{curr[2]}\t{curr[3]}\t\t{i}']  # doesn't look well in files cus
-#         # tabs are different
-#
-#     return ret
-#
-#
-# def get_mode(st_mode):
-#     modes = ['r', 'w', 'x']
-#     st_mode = bin(st_mode)[-9:]
-#     ret = ''
-#     for i, val in enumerate(st_mode):
-#         if val == '0':
-#             ret += '-'
-#             continue
-#         ret += modes[i % 3]
-#     return ret
-#
-#
-# def get_time_from_seconds(seconds, c=False):
-#     curr_time = datetime.datetime.fromtimestamp(seconds)
-#     if c:
-#         return curr_time.strftime('%d-%m-%y %H:%M')
-#     return curr_time.strftime('%b %d-%m-%y %H:%M')
-#
 
 def title(args):
     return args[0].title()
 
 
-def cool(_):
-    import time
+def cool(args):
     for x in range(0, 4):
-        b = "Loading" + "." * x
-        print(b, end="\r")
+        b = "\rLoading" + "." * x
+        print(b, end='')
         time.sleep(1)
+
+    if '/n' in args:
+        print()
 
 
 def copy(args):  # initial copy
@@ -153,24 +123,44 @@ def copy(args):  # initial copy
         f.write(data)
 
 
-def my_set(args):  # initial set
-    def format_enviro():
-        enviro_sorted = sorted(enviro_vars)
-        return '\r\n'.join(f'{x}={enviro_vars[x]}' for x in enviro_sorted)
+def my_set(args: list[str]):
+    reset_enviro_vars()
+
+    def format_enviro(var_name: str or None):
+        if var_name is None or var_name not in enviro_vars:
+            enviro_sorted = sorted(enviro_vars)
+            return '\r\n'.join(f'{x}={enviro_vars[x]}' for x in enviro_sorted)
+
+        return f'{var_name}={enviro_vars[var_name]}'
+
+    def set_self_enviro(var_name):
+        pass
 
     if len(args) == 0:
-        return format_enviro()
+        return format_enviro(None)
+
+    if '=' not in args[0]:
+        return format_enviro(args[0].upper())
+
+    eq_index = args[0].index('=')
+    var, new_val = args[0][:eq_index], args[0][eq_index:]
+    if var in self_enviro:
+        set_self_enviro(var)
+        return
+
+    subprocess.run(['set', f'{var}={new_val}'], stdin=stdin, stdout=stdout, shell=True)
+
+
 
 
 
 inner_commands = {'cls': clear_screen, 'cd': change_directory, 'ls': ls, 'title': title, 'cool': cool}
-external_commands = {'print': 'print.py'}
+# external_commands = {'print': 'print.py'}
 
 
 
 def get_prompt():
     """ replaces all the $ stuff with their values specified in the 'to_replace' dictionary """
-    global prompt
 
     to_replace = {'$P': curr_path, '$U': os.getenv("USERNAME"), '$_': '\n', '$G': '>', '$L': '<', '$b': '\\', '$f': '/',
                   '$T': datetime.datetime.now().strftime("%H:%M"), '$d': datetime.datetime.now().strftime('%d-%m-%y'),
@@ -180,22 +170,23 @@ def get_prompt():
     to_replace['$$'] = '%temp%'
     to_replace['%temp%'] = '$'
 
-    for i in to_replace_order:
-        prompt = prompt.replace(i, to_replace[i])
 
-    return prompt
+    to_print = prompt
+    for i in to_replace_order:
+        to_print = to_print.replace(i, to_replace[i])
+
+
+    return to_print
 
 
 def run_func(func: str, args: list):
+    global stdout
+
     if func in inner_commands:
         return inner_commands[func](args)
-    # if func in external_commands:
-    #     temp = subprocess.run(['python', external_commands[func]] + args)
-    #     return temp.stdout
-    ret = run_external(func, args)
-    if ret is None:
-        ret = run_external(func, args, add_python=True)
-    return ret
+
+    run_external(func, args)
+    run_external(func, args, add_python=True)
 
 
 def run_external(func: str, args: list, add_python=False):
@@ -205,15 +196,19 @@ def run_external(func: str, args: list, add_python=False):
         func += '.py'
 
     if func in os.listdir(curr_path):
-        temp = subprocess.run(before + [func] + args)
-        return temp.stdout
+        # temp = subprocess.run(before + [func] + args, stdin=stdin, stdout=stdout)
+        # return temp.stdout
+        subprocess.run(before + [func] + args, stdin=stdin, stdout=stdout, shell=True)
+        return
     else:
         for i in PATH:
             try:
                 dir_cont = os.listdir(i)
                 if func in dir_cont:
-                    temp = subprocess.run(before + [i + f'/{func}'] + args)
-                    return temp.stdout
+                    # temp = subprocess.run(before + [i + f'/{func}'] + args, stdin=stdin, stdout=stdout)
+                    # return temp.stdout
+                    subprocess.run(before + [f'{i}/{func}'] + args, stdin=stdin, stdout=stdout, shell=True)
+                    return
             except FileNotFoundError:
                 pass
 
@@ -224,8 +219,8 @@ def does_external_exist(func_name: str):
 
     for i in PATH + [curr_path]:
         try:
-            dir_cont = os.listdir(i)
-            if func_name in dir_cont or func_name + '.py' in dir_cont:
+            dir_ = os.listdir(i)
+            if func_name in dir_ or func_name + '.py' in dir_:
                 return True
         except FileNotFoundError:
             pass
@@ -234,21 +229,31 @@ def does_external_exist(func_name: str):
 
 
 def is_shell_command(func_name: str):
-    return not (func_name in inner_commands or does_external_exist(func_name) or func_name in self_enviro)
+    return not (func_name in inner_commands or does_external_exist(func_name))  #  or func_name in self_enviro
+    # don't remember why I added ' or func_name in self_enviro'
 
 
-def output(to_output):  # very temp function. need to change
+def output(to_output):
     if to_output is None:
-        print()
-        return
+        to_output = ''
 
-    # print(f'Debug: output_location = {output_location}, output_mode = {output_mode}')
-    if output_location == sys.stdout or not isinstance(output_location, str):
+    # print(f'Debug: stdout = {stdout}, output_mode = {output_mode}')
+    if stdout == sys.stdout:
+        if to_output == '':
+            print('', end='\r')
+            return
+
         print(to_output)
         sys.stdout.flush()
         return
 
-    with open(output_location, output_mode) as f:
+    if not isinstance(stdout, str):
+        with stdout as f:
+            print(to_output, file=f)
+            sys.stdout.flush()
+            return
+
+    with open(stdout, output_mode) as f:
         print(to_output, file=f)
         sys.stdout.flush()
 
@@ -256,10 +261,10 @@ def output(to_output):  # very temp function. need to change
 
 
 def get_output_location(args: list):  # also temp
-    global output_location, output_mode
+    global stdout, output_mode
 
     if '>' not in args and '>>' not in args:
-        output_location, output_mode = sys.stdout, 'w'
+        stdout, output_mode = sys.stdout, 'w'
         return
 
     to_find, output_mode = '>', 'w'
@@ -269,7 +274,7 @@ def get_output_location(args: list):  # also temp
     # try:
     #     # > is always at the end
     #     # index = args.index(to_find)
-    #     # output_location, output_mode = args[index + 1], output_mode
+    #     # stdout, output_mode = args[index + 1], output_mode
     #     # del args[index]
     #     # del args[index]
     # except IndexError:
@@ -277,8 +282,31 @@ def get_output_location(args: list):  # also temp
     if args[-2] != to_find:
         raise SyntaxError('Incorrect syntax of >')
 
-    output_location = args.pop(-1)
+    file = args.pop(-1)
     del args[-1]
+
+    stdout = open(file, output_mode)
+
+
+def get_input_location(args: list):
+    global stdin
+
+    if '<' not in args:
+        stdin = sys.stdin
+        return
+
+    index = args.index('<')
+    if args[-2] != args[index] and args[-4] != args[index]:
+        raise FileNotFoundError('Incorrect syntax of >')
+
+
+    path = args.pop(index + 1)
+    del args[index]
+
+    try:
+        stdin = open(path)
+    except FileNotFoundError:
+        raise FileNotFoundError('The system cannot find the file specified.')
 
 
 
@@ -299,51 +327,6 @@ def my_split(s: str, comments=False, posix=True):
         lex.commenters = ''
     return list(lex)
 
-
-def handle_pipes(commands: str):
-    # print('Debug: In "handle_pipes"')
-
-    commands = commands.split('|')
-    if len(commands) > 2:
-        raise SyntaxError('This program does not support more than 1 pipe')
-    if len(commands) < 2:
-        raise SyntaxError('Bad | synthax or somrthing')
-
-    comm1 = my_split(commands[0])
-    comm2 = my_split(commands[1])
-    # print(f'Debug: comm1 = {comm1}, comm2 = {comm2}')
-
-    def get_pre(comm: str):
-        # if comm in inner_commands or comm in external_commands:
-        if comm in inner_commands:
-            return ['python', "main.py"], False
-
-        return [], True
-
-    pre_for_1, shell1 = get_pre(comm1[0].lower())
-    pre_for_2, shell2 = get_pre(comm2[0].lower())
-    # print(f'Debug: pre_for_1 = {pre_for_1}, pre_for_2 = {pre_for_2}')
-
-    args1 = pre_for_1 + comm1
-    args2 = pre_for_2 + comm2
-    # print(f'Debug: args1 = {args1}, args2 = {args2}')
-
-    p1 = subprocess.Popen(args1, stdout=subprocess.PIPE, shell=shell1)
-    p2 = subprocess.Popen(args2, stdin=p1.stdout, shell=shell2)
-    p1.stdout.close()
-
-    # print()
-    # print()
-    # print()
-
-    outs, errs = p2.communicate()
-
-    # print('Debug: Back in "handle_pipes"')
-
-    if outs:
-        output(outs)
-    elif errs:
-        output(errs)
 
 
 def add_cmd_path_to_path():
@@ -376,12 +359,56 @@ def reset_enviro_vars():
     ';'.join(enviro_vars['PATH'])
 
 
+def handle_pipes(commands: str):
+    # print('Debug: In "handle_pipes"')
+
+    commands = commands.split('|')
+    if len(commands) > 2:
+        raise SyntaxError('This program does not support more than 1 pipe')
+    if len(commands) < 2:
+        raise SyntaxError('Bad | synthax or somrthing')
+
+    comm1 = my_split(commands[0])
+    comm2 = my_split(commands[1])
+    # print(f'Debug: comm1 = {comm1}, comm2 = {comm2}')
+
+    def get_pre(comm: str):
+        # if comm in inner_commands or comm in external_commands:
+        if comm in inner_commands:
+            return ['python', "main.py"], False
+
+        return [], True
+
+    pre_for_1, shell1 = get_pre(comm1[0].lower())
+    pre_for_2, shell2 = get_pre(comm2[0].lower())
+    # print(f'Debug: pre_for_1 = {pre_for_1}, pre_for_2 = {pre_for_2}')
+
+    args1 = pre_for_1 + comm1
+    args2 = pre_for_2 + comm2
+
+    p1 = subprocess.Popen(args1, stdout=subprocess.PIPE, shell=shell1)
+    p2 = subprocess.Popen(args2, stdin=p1.stdout, shell=shell2)
+    p1.stdout.close()
+
+    # print()
+    # print()
+    # print()
+
+    outs, errs = p2.communicate()
+
+    # print('Debug: Back in "handle_pipes"')
+
+    if outs:
+        output(outs)
+    elif errs:
+        output(errs)
+
+
 def main():
     # clear_screen(0)
     while True:
         print()  # to make an empty line space down a line
         try:
-            reset_enviro_vars()
             time.sleep(0.05)
             comm = input(get_prompt()).strip()
 
@@ -396,7 +423,7 @@ def main():
 
             code = x[0].lower()  # function Name
             args = x[1:]  # additional arguments (len == 0 if there aren't any)
-            # print(f'Debug: code = {code}, args = {args}')
+            print(f'Debug: code = {code}, args = {args}')
 
             if code == 'exit':
                 sys.exit()
@@ -405,11 +432,12 @@ def main():
 
             if is_shell:
                 subprocess.run(comm, shell=True)  # works fine unless the script is running in pycharm and trying to
-                # call an external command with pipe (works fine in cmd though)
+                # call an externals command with pipe (works fine in cmd though)
                 continue
 
-
+            get_input_location(args)
             get_output_location(args)
+
             output(run_func(code, args))
 
 
@@ -418,7 +446,7 @@ def main():
         except Exception as e:
             print(e)
             print(f'Debug:')
-            print(traceback.format_exc())  # Debug
+            print('Debug:' + traceback.format_exc())
 
     os.chdir(SAVE_DIR)
 
@@ -443,15 +471,19 @@ def do_one_main():
         subprocess.run(x, shell=True)
         return
 
-    # print(f'Debug:\n{ls([])}')
-    # temp = func([])
-    # output(f'Debug: temp = \n{temp}')
+
+    get_input_location(args)
     get_output_location(args)
     output(run_func(code, args))
 
 
-if __name__ == '__main__':
+def pre_main():
+    os.chdir(curr_path)
     reset_enviro_vars()
+
+
+if __name__ == '__main__':
+
     if len(sys.argv) > 1:
         do_one_main()
     else:
