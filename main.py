@@ -1,7 +1,6 @@
 from shlex import shlex  # splits like in shell
 from ls_stuff import *
 import subprocess
-import traceback
 import datetime
 import time
 import sys
@@ -29,11 +28,11 @@ enviro_vars = {}
 
 
 
-def clear_screen(_) -> None:
+def clear_screen(_) -> None or str:
     os.system('cls')
 
 
-def change_directory(new_path: list[str]) -> None or str:
+def change_directory(new_path: list) -> None or str:
     global curr_path
 
     if len(new_path) == 0:
@@ -48,16 +47,15 @@ def change_directory(new_path: list[str]) -> None or str:
         raise e
 
 
-def ls(args: list[str]) -> str:
+def ls(args: list) -> str:
     """
-    -l	known as a long format that displays detailed information about files and directories.          √
     -a	Represent all files Include hidden files and directories in the listing.                        √
-    -m	Displaying the files and directories by the most recently modified ones first.                  √
     -c	Displaying the files and directories by the most recently created ones first.                   √
+    -d	List only directories                                                                           √
+    -l	known as a long format that displays detailed information about files and directories.          √
+    -m	Displaying the files and directories by the most recently modified ones first.                  √
     -r	known as reverse order which is used to reverse the default order of listing.                   √
     -s	Sort files and directories by their sizes, listing the largest ones first.                      √
-    -d	List only directories                                                                           √
-    ** size will always take priority when sorting with both size and mod date
     """
     if len(args) == 0 or args[0][0] == '-':
         dir_path = curr_path
@@ -65,47 +63,55 @@ def ls(args: list[str]) -> str:
         dir_path = args[0]
         del args[0]
 
-    if len(args) != 0 and '-' in args[0] and '?' in args[0]:
-        return """"""
+    options = get_all_of_args_options(args, '-')
+    # print(f'Debug: options = {options}')
+    if len(options) != 0 and ('?' in options or 'h' in options):
+        return my_help(['ls'])
 
 
     dir_cont = os.listdir(dir_path)
 
     ret = [x for x in dir_cont if x[0] != '.']
-    # need_Todo: add a variable with all the -x stuff, mabye make a string with join and check its length
-    if len(args) != 0 and '-' in args[0]:
-        if 'a' in args[0]:
+    if len(options) != 0:
+        if 'a' in options:
             ret = dir_cont
-        elif 'd' in args[0]:
+        elif 'd' in options:
             ret = [x for x in dir_cont if '.' not in x]
 
-        if 'm' in args[0]:
-            ret.sort(key=lambda x: os.stat(f'{dir_path}/{x}').st_mtime, reverse=True)
+        for action in options:
+            if action in ['a', 'd', 'l']:
+                continue
 
-        if 'c' in args[0]:
-            ret.sort(key=lambda x: os.stat(f'{dir_path}/{x}').st_ctime, reverse=True)
+            if action == 'm':
+                ret.sort(key=lambda x: os.stat(f'{dir_path}/{x}').st_mtime, reverse=True)
 
-        if 's' in args[0]:
-            ret.sort(key=lambda x: os.stat(f'{dir_path}/{x}').st_size, reverse=True)
+            if action == 'c':
+                ret.sort(key=lambda x: os.stat(f'{dir_path}/{x}').st_ctime, reverse=True)
 
-        if 'l' in args[0]:
+            if action == 's':
+                ret.sort(key=lambda x: os.stat(f'{dir_path}/{x}').st_size, reverse=True)
+
+            if action == 'r':
+                ret.reverse()
+
+        if 'l' in options:
             ret = ls_long(ret, dir_path)
 
-        if 'r' in args[0]:
-            ret.reverse()
 
     return '\n'.join(ret)
 
 
-def title(args: list[str]) -> None:
+def title(args: list) -> None:
     os.system(f'title {args[0]}')
 
 
-def cool(args: list[str]) -> None:
+def cool(args: list) -> None:
     before = '\r'
     end = ''
 
-    if '/r' in args:
+    options = get_all_of_args_options(args, '/')
+
+    if 'r' in options:
         before = ''
         end = '\n'
 
@@ -114,11 +120,11 @@ def cool(args: list[str]) -> None:
         print(before + b, end=end)
         time.sleep(1)
 
-    if '/n' in args:
+    if 'n' in options:
         print()
 
 
-def copy(args: list[str]):  # initial copy
+def copy(args: list):  # initial copy
     src_dst = [x for x in args if x[0] != '/']
     src = src_dst[0]
     dst = src_dst[1]
@@ -130,7 +136,7 @@ def copy(args: list[str]):  # initial copy
         f.write(data)
 
 
-def my_set(args: list[str]) -> None or str:
+def my_set(args: list) -> None or str:
     global enviro_vars
 
     def format_enviro(var_name: str or None) -> str:
@@ -170,34 +176,93 @@ def my_set(args: list[str]) -> None or str:
 
 
     enviro_vars[var] = val
-    # reset_enviro_vars()
+
+
+def color(args: list) -> None:
+    subprocess.run(['color', f'{args[0]}'], stdout=stdout, shell=True)
+
+
+def echo(args: list) -> str:
+    return ' '.join(args)
+
+
+def get_all_of_args_options(args: list, indicator_char: chr) -> list[chr]:
+    lst = ''.join([x[1:] for x in args if x[0] == indicator_char])
+    ret = []
+    for i in lst:
+        if i in ret:
+            continue
+        ret += [i]
+
+    return ret
+
+
+def check_slash_question_mark(args: list) -> bool:
+    return '/?' in ''.join(args)
 
 
 
+def my_help(args: list):
+    if len(args) == 0:
+        return ''
 
-inner_commands = {'cls': clear_screen, 'cd': change_directory, 'ls': ls, 'title': title, 'cool': cool, 'set': my_set}
+    command = args[0]
+
+    if command == 'ls':
+        return """Usage: ls [FILE] [OPTION]...
+List information about the FILEs (the current directory by default).
+Sort entries alphabetically if none of -cftuvSUX nor --sort is specified.
+
+Mandatory arguments to long options are mandatory for short options too.
+  -a        do not ignore entries starting with .
+  -c        display the files and directories by the most recently created ones first.                     
+  -d        list directories themselves, not their contents
+  -l        use a long listing format (without group information)
+  -r        reverse order while sorting
+  -s        sort by file size, largest first
+  -m        sort by time, most recently modified first
+
+  -?, -h    display this help and exit
+
+last character entered will take priority
+"""
+
+    if command == 'cool':
+        return """Does something cool
+        
+COOL [/r] [/n]
+            
+    /r - Prints on separate lines
+    /n - Prints an additional empty line at the end
+            
+            
+You can also write as /rn or /nr"""
+
+    if command == 'set':
+        return """Displays, sets, or removes cmd.exe environment variables.
+
+SET [variable=[string]]
+    
+    variable  Specifies the environment-variable name.
+    string    Specifies a series of characters to assign to the variable.
+
+Type SET without parameters to display the current environment variables.
+Type SET with variable without '=' to display its value.
+        """
+
+    if command == 'exit':
+        return """Quits the program.
+        
+EXIT"""
+
+
+    subprocess.run(['help', f'{command}'], stdout=stdout, shell=True)
 
 
 
+inner_commands = {'cls': clear_screen, 'cd': change_directory, 'ls': ls, 'title': title, 'cool': cool, 'set': my_set,
+                  'color': color, 'echo': echo, 'help': my_help}
 
-def get_prompt():
-    """ replaces all the $ stuff with their values specified in the 'to_replace' dictionary """
-
-    to_replace = {'$P': curr_path, '$U': os.getenv("USERNAME"), '$_': '\n', '$G': '>', '$L': '<', '$b': '\\', '$f': '/',
-                  '$T': datetime.datetime.now().strftime("%H:%M"), '$d': datetime.datetime.now().strftime('%d-%m-%y'),
-                  '$D': datetime.datetime.now().strftime('%a %d-%m-%y'), '$A': '&', '$B': '|', '$C': '(', '$F': ')',
-                  '$H': '\b', '$N': enviro_vars['SystemDrive'], '$Q': '=', '$S': ' '}
-    to_replace_order = ['$$'] + list(to_replace.keys()) + ['%temp%']  # so that $$ gets replaced first, and %temp% last
-    to_replace['$$'] = '%temp%'
-    to_replace['%temp%'] = '$'
-
-
-    to_print = prompt
-    for i in to_replace_order:
-        to_print = to_print.replace(i, to_replace[i])
-
-
-    return to_print
 
 
 def run_func(func: str, args: list):
@@ -208,6 +273,8 @@ def run_func(func: str, args: list):
 
     if not run_external(func, args):
         run_external(func, args, add_python=True)
+
+    time.sleep(0.2)  # to prevent errors from getting printed after the prompt when using subprocess
 
 
 def run_external(func: str, args: list, add_python=False):
@@ -243,8 +310,7 @@ def does_external_exist(func_name: str):
 
 
 def is_shell_command(func_name: str):
-    return not (func_name in inner_commands or does_external_exist(func_name))  # or func_name in self_enviro
-    # don't remember why I added ' or func_name in self_enviro'
+    return not (func_name in inner_commands or does_external_exist(func_name))
 
 
 def output(to_output):
@@ -258,23 +324,18 @@ def output(to_output):
             return
 
         print(to_output)
-        sys.stdout.flush()
         return
 
     if not isinstance(stdout, str):
         with stdout as f:
             print(to_output, file=f)
-            sys.stdout.flush()
             return
 
     with open(stdout, output_mode) as f:
         print(to_output, file=f)
-        sys.stdout.flush()
-
-    # print('error', f'\nto_output = {to_output}')
 
 
-def get_output_location(args: list):  # also temp
+def get_output_location(args: list):
     global stdout, output_mode
 
     if '>' not in args and '>>' not in args:
@@ -285,14 +346,7 @@ def get_output_location(args: list):  # also temp
     if '>>' in args:
         to_find, output_mode = '>>', 'a'
 
-    # try:
-    #     # > is always at the end
-    #     # index = args.index(to_find)
-    #     # stdout, output_mode = args[index + 1], output_mode
-    #     # del args[index]
-    #     # del args[index]
-    # except IndexError:
-    #     raise 'Incorrect syntax of >'
+
     if args[-2] != to_find:
         raise SyntaxError('Incorrect syntax of >')
 
@@ -438,26 +492,55 @@ def handle_pipes(commands: str):
         output(errs)
 
 
+def get_prompt():
+    """ replaces all the $ stuff with their values specified in the 'to_replace' dictionary """
+
+    to_replace = {'$P': curr_path, '$U': os.getenv("USERNAME"), '$_': '\n', '$G': '>', '$L': '<', '$b': '\\', '$f': '/',
+                  '$T': datetime.datetime.now().strftime("%H:%M"), '$d': datetime.datetime.now().strftime('%d-%m-%y'),
+                  '$D': datetime.datetime.now().strftime('%a %d-%m-%y'), '$A': '&', '$B': '|', '$C': '(', '$F': ')',
+                  '$H': '\b', '$N': enviro_vars['SystemDrive'], '$Q': '=', '$S': ' '}
+    to_replace_order = ['$$'] + list(to_replace.keys()) + ['%temp%']  # so that $$ gets replaced first, and %temp% last
+    to_replace['$$'] = '%temp%'
+    to_replace['%temp%'] = '$'
+
+
+    to_print = prompt
+    for i in to_replace_order:
+        to_print = to_print.replace(i, to_replace[i])
+
+
+    return to_print
+
+
 def main():
-    # clear_screen(0)
+    should_print = True
     while True:
-        print()  # to make an empty line space down a line
+        if should_print:
+            print()  # to make an empty line space down a line
         try:
-            time.sleep(0.05)  # to prevent errors from getting printed after the prompt when using subprocess
             comm = input(get_prompt()).strip()
 
             if comm == '':
-                continue  # goes back to the beginning of the loop
+                should_print = False
+                continue
+
+            should_print = True
 
             x = my_split(comm)
             # print(f'Debug: x = {x}')
 
+
             if '|' in x:
                 handle_pipes(comm)
+                time.sleep(0.2)  # to prevent errors from getting printed after the prompt when using subprocess
                 continue
 
             code = x[0].lower()  # function Name
             args = x[1:]  # additional arguments (len == 0 if there aren't any)
+
+            if check_slash_question_mark(args):
+                args = [code]
+                code = 'help'
 
             if code == 'exit':
                 sys.exit()
@@ -467,6 +550,7 @@ def main():
             if is_shell:
                 subprocess.run(comm, shell=True)  # works fine unless the script is running in pycharm and trying to
                 # call an externals command with pipe (works fine in cmd though)
+                time.sleep(0.2)  # to prevent errors from getting printed after the prompt when using subprocess
                 continue
 
             get_input_location(args)
@@ -476,10 +560,11 @@ def main():
 
 
         except KeyboardInterrupt:
-            pass  # moved the  print to the beginning of the function
+            print('\n')
+
         except Exception as e:
             print(e)
-            print('Debug:' + traceback.format_exc())
+            # print('Debug:' + traceback.format_exc())
 
     os.chdir(SAVE_DIR)
 
@@ -492,6 +577,10 @@ def do_one_main():
     code = x[0].lower()
     args = x[1:]
     # print(f'Debug: code = {code}, args = {args}')
+
+    if check_slash_question_mark(args):
+        args = [code]
+        code = 'help'
 
     if code == 'exit':
         sys.exit()
@@ -529,3 +618,5 @@ if __name__ == '__main__':
     # change_directory(input('mashehu > cd '))
 
     # print(datetime.datetime.now().strftime("%d.%m.%Y %H:%M"))
+
+    # print(len(get_all_of_args_options(["-r", "-rn", "p;oda", "-l", "ppp"], '/')))
